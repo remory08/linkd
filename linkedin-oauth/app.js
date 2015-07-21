@@ -1,3 +1,5 @@
+require('dotenv').load();
+
 var express = require('express');
 var path = require('path');
 var favicon = require('serve-favicon');
@@ -5,7 +7,8 @@ var logger = require('morgan');
 var cookieParser = require('cookie-parser');
 var cookieSession = require('cookie-session');
 var bodyParser = require('body-parser');
-require('dotenv').load();
+
+
 
 var routes = require('./routes/index');
 var users = require('./routes/users');
@@ -24,15 +27,15 @@ app.use(logger('dev'));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cookieParser());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(cookieSession({name: 'session',keys: [process.env.SECRET1, process.env.SECRET2]}))
 app.use(passport.initialize());
+app.use(passport.session());
+app.use(express.static(path.join(__dirname, 'public')));
+
 
 app.set('trust proxy', 1) // trust first proxy
 
-app.use(cookieSession({
-  name: 'session',
-  keys: ['key1', 'key2']
-}))
+
 
 passport.use(new LinkedInStrategy({
   clientID: process.env.LINKEDIN_CLIENT_ID,
@@ -41,14 +44,7 @@ passport.use(new LinkedInStrategy({
   scope: ['r_emailaddress', 'r_basicprofile'],
   state: true
 }, function(accessToken, refreshToken, profile, done) {
-  // asynchronous verification, for effect...
-  process.nextTick(function () {
-    // To keep the example simple, the user's LinkedIn profile is returned to
-    // represent the logged-in user. In a typical application, you would want
-    // to associate the LinkedIn account with a user record in your database,
-    // and return that user instead.
-    return done(null, profile);
-  });
+  done(null, {id: profile.id, displayName: profile.displayName, token: accessToken})
 }));
 
 app.get('/auth/linkedin',
@@ -58,18 +54,18 @@ app.get('/auth/linkedin',
     // function will not be called.
   });
 
-  app.get('/auth/linkedin/callback', passport.authenticate('linkedin', {
-    successRedirect: '/',
-    failureRedirect: '/login'
-  }));
+app.get('/auth/linkedin/callback', passport.authenticate('linkedin', {
+  successRedirect: '/',
+  failureRedirect: '/login'
+}));
 
-  passport.serializeUser(function(user, done) {
-    done(null, user);
-  });
+passport.serializeUser(function(user, done) {
+  done(null, user);
+});
 
-  passport.deserializeUser(function(user, done) {
-    done(null, user)
-  });
+passport.deserializeUser(function(user, done) {
+  done(null, user)
+});
 
 app.use(function (req, res, next) {
   res.locals.user = req.user
